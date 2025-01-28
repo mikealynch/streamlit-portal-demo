@@ -1,6 +1,8 @@
 import streamlit as st
 import bcrypt
 import sqlite3
+import random
+from datetime import datetime
 
 # Database setup
 def init_db():
@@ -9,6 +11,17 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS users (
                     username TEXT PRIMARY KEY,
                     password TEXT
+                )''')
+    conn.commit()
+    c.execute('''CREATE TABLE IF NOT EXISTS subtraction_practice (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT,
+                    question TEXT,
+                    user_answer INTEGER,
+                    correct_answer INTEGER,
+                    is_correct BOOLEAN,
+                    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(username) REFERENCES users(username)
                 )''')
     conn.commit()
     conn.close()
@@ -36,6 +49,27 @@ def validate_user(username, password):
         return bcrypt.checkpw(password.encode("utf-8"), stored_password.encode("utf-8"))
     return False
 
+def insert_record(username, question, user_answer, correct_answer, is_correct):
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO subtraction_practice (username, question, user_answer, correct_answer, is_correct, date) VALUES (?, ?, ?, ?, ?, ?)",
+        (username, question, user_answer, correct_answer, is_correct, datetime.now())
+    )
+    conn.commit()
+    conn.close()
+
+def generate_question(previous_questions):
+    while True:
+        num1 = random.randint(9, 18)
+        num2 = random.randint(5, 12)
+        if num1 < num2:  # Ensure no negative results
+            num1, num2 = num2, num1
+        question = (num1, num2)
+        if question not in previous_questions:
+            previous_questions.add(question)
+            return question
+
 # Initialize database
 init_db()
 
@@ -43,6 +77,21 @@ init_db()
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
     st.session_state["username"] = None
+if "correct_count" not in st.session_state:
+    st.session_state.correct_count = 0
+if "question" not in st.session_state:
+    st.session_state.previous_questions = set()
+    st.session_state.question = generate_question(st.session_state.previous_questions)
+if "feedback" not in st.session_state:
+    st.session_state.feedback = ""
+if "celebration" not in st.session_state:
+    st.session_state.celebration = False  # Boolean flag to control image display
+if "disappointment" not in st.session_state:
+    st.session_state.disappointment = False  # Boolean flag to control image display
+if "show_next" not in st.session_state:
+    st.session_state.show_next = False
+if "user_answer" not in st.session_state:
+    st.session_state.user_answer = None
 
 # Page routing logic
 def login_page():
@@ -81,10 +130,75 @@ def members_only_page():
     if st.session_state["logged_in"]:
         st.title(f"Welcome, {st.session_state['username']}!")
         st.success("You have accessed the members-only page.")
-        if st.button("Logout"):
-            st.session_state["logged_in"] = False
-            st.session_state["username"] = None
-            st.experimental_rerun()
+
+        # Math game logic
+        st.title("Math Practice: Subtraction Table")
+
+        # Display the question
+        num1, num2 = st.session_state.question
+
+        if not st.session_state.show_next:
+            # Input form for the answer
+            with st.form("answer_form", clear_on_submit=True):
+                st.markdown(f"<h2>What is {num1} - {num2}?</h2>", unsafe_allow_html=True)
+                user_answer = st.number_input("Your Answer:", step=1, format="%d", key="user_answer")
+                submit_button = st.form_submit_button("Submit")
+
+                if submit_button:
+                    correct_answer = num1 - num2
+                    is_correct = user_answer == correct_answer
+
+                    # Provide feedback
+                    if is_correct:
+                        st.session_state.feedback = "Correct! Well done!"
+                        st.session_state.correct_count += 1
+                        st.session_state.celebration = True  # Enable image display for correct answers
+                        st.session_state.disappointment = False
+                    else:
+                        st.session_state.feedback = f"Incorrect. The correct answer is {correct_answer}."
+                        st.session_state.celebration = False  # Disable image for incorrect answers
+                        st.session_state.disappointment = True
+
+                    # Save to database
+                    insert_record(st.session_state["username"], f"{num1} - {num2}", user_answer, correct_answer, is_correct)
+                    st.session_state.show_next = True  # Toggle to show the next question button
+                    st.experimental_rerun()  # Force UI refresh
+
+        # Show feedback if available
+        if st.session_state.feedback:
+            st.markdown(f"<h3>{st.session_state.feedback}</h3>", unsafe_allow_html=True)
+
+        # Show celebration image if the user answered correctly
+        if st.session_state.celebration:
+            st.image(
+                "https://github.com/mikealynch/math-pals/raw/main/squishmallows.gif",
+                caption="Great job!",
+                use_container_width=True
+            )
+
+        # Show disappointment image if the user answered incorrectly
+        if st.session_state.disappointment:
+            st.image(
+                "https://raw.githubusercontent.com/mikealynch/math-pals/refs/heads/main/dis_pika.jpg",
+                caption="NOPE!",
+                use_container_width=True
+            )
+
+        # Show "Next Question" button
+        if st.session_state.show_next:
+            if st.button("Next Question"):
+                # Generate a new question, reset the flow, and clear the user input
+                st.session_state.question = generate_question(st.session_state.previous_questions)
+                st.session_state.feedback = ""
+                st.session_state.celebration = False
+                st.session_state.disappointment = False
+                st.session_state.show_next = False
+                st.session_state.user_answer = None  # Reset user answer
+                st.experimental_rerun()  # Force the app to rerun
+
+        # Display progress
+        st.markdown(f"<h3>Correct answers: {st.session_state.correct_count}/28</h3>", unsafe_allow_html=True)
+
     else:
         st.warning("Access denied. Please log in.")
 
