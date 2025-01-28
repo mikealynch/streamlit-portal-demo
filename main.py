@@ -119,6 +119,8 @@ if "question" not in st.session_state:
     st.session_state.question = generate_question(st.session_state.previous_questions)
 if "feedback" not in st.session_state:
     st.session_state.feedback = ""
+if "reward" not in st.session_state:
+    st.session_state.reward = False    
 if "celebration" not in st.session_state:
     st.session_state.celebration = False  # Boolean flag to control image display
 if "disappointment" not in st.session_state:
@@ -191,20 +193,19 @@ def members_only_page():
                         st.session_state.correct_count += 1
                         st.session_state.celebration = True  # Enable image display for correct answers
                         st.session_state.disappointment = False
-
+                        st.session_state.reward = False
+                        
                         # Check if eligible for an item
                         if st.session_state.correct_count % 3 == 0:
-                            random_row = items_df.sample().iloc[0]
-                            random_title = random_row["Title"]
-                            random_url = random_row["URL"]
-                            hyperlinked_title = f"<a href='{random_url}' target='_blank'>{random_title}</a>"
-                            add_to_inventory(st.session_state["username"], random_title)
-                            st.success(f"You earned a new item: {hyperlinked_title}")
+                            st.session_state.reward = True
+
+                            
 
                     else:
                         st.session_state.feedback = f"Incorrect. The correct answer is {correct_answer}."
                         st.session_state.celebration = False  # Disable image for incorrect answers
                         st.session_state.disappointment = True
+                        st.session_state.reward = False
 
                     # Save to database
                     insert_record(st.session_state["username"], f"{num1} - {num2}", user_answer, correct_answer, is_correct)
@@ -215,7 +216,16 @@ def members_only_page():
         if st.session_state.feedback:
             st.markdown(f"<h3>{st.session_state.feedback}</h3>", unsafe_allow_html=True)
 
-        # Show celebration image if the user answered correctly
+         # Show celebration image if the user answered correctly
+        if st.session_state.reward:
+            random_row = items_df.sample().iloc[0]
+            random_title = random_row["Title"]
+            random_url = random_row["URL"]
+            hyperlinked_title = f"<a href='{random_url}' target='_blank'>{random_title}</a>"
+            add_to_inventory(st.session_state["username"], random_title)
+            st.success(f"You earned a new item: {hyperlinked_title}")
+
+            # Show celebration image if the user answered correctly
         if st.session_state.celebration:
             st.image(
                 "https://github.com/mikealynch/math-pals/raw/main/squishmallows.gif",
