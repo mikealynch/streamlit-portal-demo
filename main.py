@@ -244,7 +244,7 @@ def members_only_page():
                 st.rerun()  # Force the app to rerun
 
         # Display progress
-        st.header({st.session_state.correct_count}/28")
+        st.header(f"Correct answers: {st.session_state.correct_count}/28")
 
     else:
         st.warning("Access denied. Please log in.")
