@@ -81,6 +81,13 @@ def get_inventory(username):
     conn.close()
     return [item[0] for item in items]
 
+def clear_inventory(username):
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM inventory WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+
 def generate_question(previous_questions):
     while True:
         num1 = random.randint(9, 18)
@@ -112,8 +119,6 @@ if "question" not in st.session_state:
     st.session_state.question = generate_question(st.session_state.previous_questions)
 if "feedback" not in st.session_state:
     st.session_state.feedback = ""
-if "reward" not in st.session_state:
-    st.session_state.reward = False   
 if "celebration" not in st.session_state:
     st.session_state.celebration = False  # Boolean flag to control image display
 if "disappointment" not in st.session_state:
@@ -186,17 +191,20 @@ def members_only_page():
                         st.session_state.correct_count += 1
                         st.session_state.celebration = True  # Enable image display for correct answers
                         st.session_state.disappointment = False
-                        st.session_state.reward = False
 
                         # Check if eligible for an item
                         if st.session_state.correct_count % 3 == 0:
-                            st.session_state.reward = True
+                            random_row = items_df.sample().iloc[0]
+                            random_title = random_row["Title"]
+                            random_url = random_row["URL"]
+                            hyperlinked_title = f"<a href='{random_url}' target='_blank'>{random_title}</a>"
+                            add_to_inventory(st.session_state["username"], random_title)
+                            st.success(f"You earned a new item: {hyperlinked_title}", unsafe_allow_html=True)
+
                     else:
                         st.session_state.feedback = f"Incorrect. The correct answer is {correct_answer}."
                         st.session_state.celebration = False  # Disable image for incorrect answers
                         st.session_state.disappointment = True
-                        st.session_state.reward = False
-
 
                     # Save to database
                     insert_record(st.session_state["username"], f"{num1} - {num2}", user_answer, correct_answer, is_correct)
@@ -214,15 +222,6 @@ def members_only_page():
                 caption="Great job!",
                 use_container_width=True
             )
-
-        # Reward
-        if st.session_state.reward:
-            random_row = items_df.sample().iloc[0]
-            random_title = random_row["Title"]
-            random_url = random_row["URL"]
-            hyperlinked_title = f"<a href='{random_url}' target='_blank'>{random_title}</a>"
-            add_to_inventory(st.session_state["username"], random_title)
-            st.markdown(f"You earned a new item: {hyperlinked_title}")
 
         # Show disappointment image if the user answered incorrectly
         if st.session_state.disappointment:
@@ -245,7 +244,7 @@ def members_only_page():
                 st.rerun()  # Force the app to rerun
 
         # Display progress
-        st.markdown(f"<h3>Correct answers: {st.session_state.correct_count}/28</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3>Correct answers: {st.session_state.correct_count}/28</h3>")
 
     else:
         st.warning("Access denied. Please log in.")
@@ -257,9 +256,17 @@ def inventory_page():
         if inventory:
             st.write("Here are your items:")
             for item in inventory:
-                st.write(f"- {item}")
+                item_row = items_df[items_df['Title'] == item]
+                if not item_row.empty:
+                    item_url = item_row.iloc[0]['URL']
+                    st.markdown(f"- [**{item}**]({item_url})", unsafe_allow_html=True)
         else:
             st.write("Your inventory is empty. Keep playing to earn items!")
+
+        # Clear inventory button
+        if st.button("Clear Inventory"):
+            clear_inventory(st.session_state["username"])
+            st.success("Your inventory has been cleared.")
     else:
         st.warning("Access denied. Please log in.")
 
