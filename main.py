@@ -56,7 +56,7 @@ def login_page():
         if validate_user(username, password):
             st.session_state["logged_in"] = True
             st.session_state["username"] = username
-            members_only_page()
+            st.success("Login successful! Redirecting...")
         else:
             st.error("Invalid username or password. Please try again.")
 
@@ -72,7 +72,6 @@ def register_page():
             hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
             if add_user(username, hashed_password):
                 st.success("User registered successfully! Please log in.")
-                login_page()
             else:
                 st.error("Username already exists. Please choose a different one.")
         else:
@@ -85,10 +84,9 @@ def members_only_page():
         if st.button("Logout"):
             st.session_state["logged_in"] = False
             st.session_state["username"] = None
-            login_page()
+            st.experimental_rerun()
     else:
         st.warning("Access denied. Please log in.")
-        login_page()
 
 # Sidebar Navigation
 st.sidebar.title("Navigation")
@@ -100,3 +98,7 @@ elif page == "Register":
     register_page()
 elif page == "Members Only":
     members_only_page()
+
+# Redirect to appropriate page if logged in
+if st.session_state["logged_in"] and page != "Members Only":
+    st.sidebar.info("You are logged in. Access the Members Only page.")
