@@ -119,6 +119,8 @@ if "question" not in st.session_state:
     st.session_state.question = generate_question(st.session_state.previous_questions)
 if "feedback" not in st.session_state:
     st.session_state.feedback = ""
+if "rewardItem" not in st.session_state:
+    st.session_state.rewardItem = ""    
 if "reward" not in st.session_state:
     st.session_state.reward = False    
 if "celebration" not in st.session_state:
@@ -198,6 +200,12 @@ def members_only_page():
                         # Check if eligible for an item
                         if st.session_state.correct_count % 3 == 0:
                             st.session_state.reward = True
+                            random_row = items_df.sample().iloc[0]
+                            random_title = random_row["Title"]
+                            random_url = random_row["URL"]
+                            hyperlinked_title = f"<a href='{random_url}' target='_blank'>{random_title}</a>"
+                            add_to_inventory(st.session_state["username"], random_title)
+                            st.session_state.rewardItem = random_title
 
                             
 
@@ -218,12 +226,7 @@ def members_only_page():
 
          # Show celebration image if the user answered correctly
         if st.session_state.reward:
-            random_row = items_df.sample().iloc[0]
-            random_title = random_row["Title"]
-            random_url = random_row["URL"]
-            hyperlinked_title = f"<a href='{random_url}' target='_blank'>{random_title}</a>"
-            add_to_inventory(st.session_state["username"], random_title)
-            st.success(f"You earned a new item: {hyperlinked_title}")
+            st.success(f"You earned a new item: {st.session_state.rewardItem}")
 
             # Show celebration image if the user answered correctly
         if st.session_state.celebration:
