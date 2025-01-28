@@ -199,7 +199,7 @@ def members_only_page():
                             random_url = random_row["URL"]
                             hyperlinked_title = f"<a href='{random_url}' target='_blank'>{random_title}</a>"
                             add_to_inventory(st.session_state["username"], random_title)
-                            st.success(f"You earned a new item: {hyperlinked_title}", unsafe_allow_html=True)
+                            st.success(f"You earned a new item: {hyperlinked_title}")
 
                     else:
                         st.session_state.feedback = f"Incorrect. The correct answer is {correct_answer}."
