@@ -198,7 +198,7 @@ def members_only_page():
                         st.session_state.reward = False
                         
                         # Check if eligible for an item
-                        if st.session_state.correct_count % 3 == 0:
+                        if st.session_state.correct_count % 10 == 0:
                             st.session_state.reward = True
                             random_row = items_df.sample().iloc[0]
                             random_title = random_row["Title"]
