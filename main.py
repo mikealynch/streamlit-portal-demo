@@ -112,6 +112,8 @@ if "question" not in st.session_state:
     st.session_state.question = generate_question(st.session_state.previous_questions)
 if "feedback" not in st.session_state:
     st.session_state.feedback = ""
+if "reward" not in st.session_state:
+    st.session_state.reward = False   
 if "celebration" not in st.session_state:
     st.session_state.celebration = False  # Boolean flag to control image display
 if "disappointment" not in st.session_state:
@@ -189,8 +191,7 @@ def members_only_page():
                         if st.session_state.correct_count % 3 == 0:
                             random_item = items_df.sample().iloc[0]["Title"]
                             add_to_inventory(st.session_state["username"], random_item)
-                            st.success(f"You earned a new item: {random_item}!")
-
+                            st.session_state.reward = True
                     else:
                         st.session_state.feedback = f"Incorrect. The correct answer is {correct_answer}."
                         st.session_state.celebration = False  # Disable image for incorrect answers
@@ -212,6 +213,10 @@ def members_only_page():
                 caption="Great job!",
                 use_container_width=True
             )
+
+        # Reward
+        if st.session_state.reward:
+            st.success(f"You earned a new item: {random_item}!")
 
         # Show disappointment image if the user answered incorrectly
         if st.session_state.disappointment:
