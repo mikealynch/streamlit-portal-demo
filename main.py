@@ -2,6 +2,7 @@ import streamlit as st
 import bcrypt
 import sqlite3
 import random
+import pandas as pd
 from datetime import datetime
 
 # Database setup
@@ -21,6 +22,12 @@ def init_db():
                     correct_answer INTEGER,
                     is_correct BOOLEAN,
                     date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(username) REFERENCES users(username)
+                )''')
+    conn.commit()
+    c.execute('''CREATE TABLE IF NOT EXISTS inventory (
+                    username TEXT,
+                    item TEXT,
                     FOREIGN KEY(username) REFERENCES users(username)
                 )''')
     conn.commit()
@@ -59,6 +66,21 @@ def insert_record(username, question, user_answer, correct_answer, is_correct):
     conn.commit()
     conn.close()
 
+def add_to_inventory(username, item):
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO inventory (username, item) VALUES (?, ?)", (username, item))
+    conn.commit()
+    conn.close()
+
+def get_inventory(username):
+    conn = sqlite3.connect("users.db")
+    c = conn.cursor()
+    c.execute("SELECT item FROM inventory WHERE username = ?", (username,))
+    items = c.fetchall()
+    conn.close()
+    return [item[0] for item in items]
+
 def generate_question(previous_questions):
     while True:
         num1 = random.randint(9, 18)
@@ -69,6 +91,12 @@ def generate_question(previous_questions):
         if question not in previous_questions:
             previous_questions.add(question)
             return question
+
+# Load items CSV
+def load_items():
+    url = "https://raw.githubusercontent.com/mikealynch/streamlit-portal-demo/refs/heads/main/items.csv"
+    items_df = pd.read_csv(url)
+    return items_df
 
 # Initialize database
 init_db()
@@ -92,6 +120,8 @@ if "show_next" not in st.session_state:
     st.session_state.show_next = False
 if "user_answer" not in st.session_state:
     st.session_state.user_answer = None
+
+items_df = load_items()
 
 # Page routing logic
 def login_page():
@@ -154,6 +184,13 @@ def members_only_page():
                         st.session_state.correct_count += 1
                         st.session_state.celebration = True  # Enable image display for correct answers
                         st.session_state.disappointment = False
+
+                        # Check if eligible for an item
+                        if st.session_state.correct_count % 3 == 0:
+                            random_item = items_df.sample().iloc[0]["Title"]
+                            add_to_inventory(st.session_state["username"], random_item)
+                            st.success(f"You earned a new item: {random_item}!")
+
                     else:
                         st.session_state.feedback = f"Incorrect. The correct answer is {correct_answer}."
                         st.session_state.celebration = False  # Disable image for incorrect answers
@@ -162,7 +199,7 @@ def members_only_page():
                     # Save to database
                     insert_record(st.session_state["username"], f"{num1} - {num2}", user_answer, correct_answer, is_correct)
                     st.session_state.show_next = True  # Toggle to show the next question button
-                    st.rerun()  # Force UI refresh
+                    st.experimental_rerun()  # Force UI refresh
 
         # Show feedback if available
         if st.session_state.feedback:
@@ -194,7 +231,7 @@ def members_only_page():
                 st.session_state.disappointment = False
                 st.session_state.show_next = False
                 st.session_state.user_answer = None  # Reset user answer
-                st.rerun()  # Force the app to rerun
+                st.experimental_rerun()  # Force the app to rerun
 
         # Display progress
         st.markdown(f"<h3>Correct answers: {st.session_state.correct_count}/28</h3>", unsafe_allow_html=True)
@@ -202,9 +239,22 @@ def members_only_page():
     else:
         st.warning("Access denied. Please log in.")
 
+def inventory_page():
+    if st.session_state["logged_in"]:
+        st.title("Your Inventory")
+        inventory = get_inventory(st.session_state["username"])
+        if inventory:
+            st.write("Here are your items:")
+            for item in inventory:
+                st.write(f"- {item}")
+        else:
+            st.write("Your inventory is empty. Keep playing to earn items!")
+    else:
+        st.warning("Access denied. Please log in.")
+
 # Sidebar Navigation
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", options=["Login", "Register", "Members Only"])
+page = st.sidebar.radio("Go to", options=["Login", "Register", "Members Only", "Inventory"])
 
 if page == "Login":
     login_page()
@@ -212,6 +262,8 @@ elif page == "Register":
     register_page()
 elif page == "Members Only":
     members_only_page()
+elif page == "Inventory":
+    inventory_page()
 
 # Redirect to appropriate page if logged in
 if st.session_state["logged_in"] and page != "Members Only":
