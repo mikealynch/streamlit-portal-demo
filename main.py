@@ -195,7 +195,7 @@ def members_only_page():
                         st.session_state.feedback = f"Incorrect. The correct answer is {correct_answer}."
                         st.session_state.celebration = False  # Disable image for incorrect answers
                         st.session_state.disappointment = True
-                         st.session_state.reward = False
+                        st.session_state.reward = False
 
 
                     # Save to database
