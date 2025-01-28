@@ -186,16 +186,17 @@ def members_only_page():
                         st.session_state.correct_count += 1
                         st.session_state.celebration = True  # Enable image display for correct answers
                         st.session_state.disappointment = False
+                        st.session_state.reward = False
 
                         # Check if eligible for an item
                         if st.session_state.correct_count % 3 == 0:
-                            random_item = items_df.sample().iloc[0]["Title"]
-                            add_to_inventory(st.session_state["username"], random_item)
                             st.session_state.reward = True
                     else:
                         st.session_state.feedback = f"Incorrect. The correct answer is {correct_answer}."
                         st.session_state.celebration = False  # Disable image for incorrect answers
                         st.session_state.disappointment = True
+                         st.session_state.reward = False
+
 
                     # Save to database
                     insert_record(st.session_state["username"], f"{num1} - {num2}", user_answer, correct_answer, is_correct)
@@ -216,6 +217,8 @@ def members_only_page():
 
         # Reward
         if st.session_state.reward:
+            random_item = items_df.sample().iloc[0]["Title"]
+            add_to_inventory(st.session_state["username"], random_item)
             st.success(f"You earned a new item: {random_item}!")
 
         # Show disappointment image if the user answered incorrectly
